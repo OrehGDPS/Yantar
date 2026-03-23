@@ -2,7 +2,10 @@
 const WebSocket = require("ws");
 const http = require("http");
 
-// Создаём HTTP сервер (требуется для Railway)
+// Лог запуска, чтобы сразу видеть в логах Railway
+console.log("Server.js загружен и стартует...");
+
+// Создаем HTTP сервер (Railway требует обертку для WebSocket)
 const server = http.createServer();
 const wss = new WebSocket.Server({ server });
 
@@ -10,12 +13,10 @@ let clients = [];
 
 wss.on("connection", (ws) => {
     console.log("Игрок подключился");
-
     clients.push(ws);
 
     ws.on("message", (message) => {
         console.log("Сообщение:", message.toString());
-
         // Отправляем всем клиентам (включая отправителя)
         clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
