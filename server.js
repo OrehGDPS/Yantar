@@ -1,6 +1,8 @@
+// server.js
 const WebSocket = require("ws");
 const http = require("http");
 
+// Создаём HTTP сервер (требуется для Railway)
 const server = http.createServer();
 const wss = new WebSocket.Server({ server });
 
@@ -14,7 +16,7 @@ wss.on("connection", (ws) => {
     ws.on("message", (message) => {
         console.log("Сообщение:", message.toString());
 
-        // отправляем ВСЕМ (включая себя)
+        // Отправляем всем клиентам (включая отправителя)
         clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(message.toString());
@@ -24,10 +26,11 @@ wss.on("connection", (ws) => {
 
     ws.on("close", () => {
         clients = clients.filter(c => c !== ws);
+        console.log("Игрок отключился");
     });
 });
 
-const PORT = process.env.PORT || 25565;
+const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
     console.log("Сервер запущен на порту " + PORT);
