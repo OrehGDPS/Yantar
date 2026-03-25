@@ -1,60 +1,38 @@
+// server.js
 const WebSocket = require("ws");
+const http = require("http");
 
-const PORT = process.env.PORT || 25565;
-const wss = new WebSocket.Server({ port: PORT });
+// Лог запуска, чтобы сразу видеть в логах Railway
+console.log("Server.js загружен и стартует...");
 
-let clients = new Map(); // клиент -> id
+// Создаем HTTP сервер (Railway требует обертку для WebSocket)
+const server = http.createServer();
+const wss = new WebSocket.Server({ server });
 
-console.log("Сервер запущен на порту " + PORT);
+let clients = [];
 
-// 📡 Отправка онлайна всем
-function sendOnline() {
-    const players = Array.from(clients.values());
-
-    const data = JSON.stringify({
-        type: "online",
-        players: players
-    });
-
-    wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(data);
-        }
-    });
-}
-
-// 🔌 Подключение
 wss.on("connection", (ws) => {
-    const id = Math.floor(Math.random() * 100000).toString();
-    clients.set(ws, id);
+    console.log("Игрок подключился");
+    clients.push(ws);
 
-    console.log("Игрок подключился:", id);
-
-    sendOnline(); // обновить онлайн
-
-    // 📩 Сообщения
     ws.on("message", (message) => {
-        const text = message.toString();
-
-        console.log("Сообщение:", text);
-
-        const data = JSON.stringify({
-            type: "message",
-            text: text
-        });
-
-        // отправить всем
-        wss.clients.forEach(client => {
+        console.log("Сообщение:", message.toString());
+        // Отправляем всем клиентам (включая отправителя)
+        clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(data);
+                client.send(message.toString());
             }
         });
     });
 
-    // ❌ Отключение
     ws.on("close", () => {
-        console.log("Игрок вышел:", id);
-        clients.delete(ws);
-        sendOnline(); // обновить онлайн
+        clients = clients.filter(c => c !== ws);
+        console.log("Игрок отключился");
     });
+});
+
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
+    console.log("Сервер запущен на порту " + PORT);
 });
