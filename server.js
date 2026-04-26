@@ -1,44 +1,57 @@
 const WebSocket = require("ws");
-const fetch = require("node-fetch");
 
 const wss = new WebSocket.Server({ port: process.env.PORT || 3000 });
 
 const FIRESTORE_URL =
 "https://firestore.googleapis.com/v1/projects/yantar-b1d5c/databases/(default)/documents/messages";
 
-// 💾 сохранить сообщение
+// 💾 сохранение (через встроенный fetch Node 18+)
 async function saveMessage(text, user) {
-    await fetch(FIRESTORE_URL, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            fields: {
-                text: { stringValue: text },
-                user: { stringValue: user },
-                time: { integerValue: Date.now().toString() }
-            }
-        })
-    });
+    try {
+        await fetch(FIRESTORE_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                fields: {
+                    text: { stringValue: text || "" },
+                    user: { stringValue: user || "unknown" },
+                    time: { integerValue: Date.now().toString() }
+                }
+            })
+        });
+    } catch (e) {
+        console.log("Firestore error:", e);
+    }
 }
 
-// 📡 WebSocket чат
 wss.on("connection", (ws) => {
 
+    console.log("Client connected");
+
     ws.on("message", async (msg) => {
-        const data = JSON.parse(msg);
+        try {
+            const data = JSON.parse(msg.toString());
 
-        await saveMessage(data.text, data.user);
+            if (!data.text) return;
 
-        wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({
-                    type: "message",
-                    user: data.user,
-                    text: data.text
-                }));
-            }
-        });
+            await saveMessage(data.text, data.user);
+
+            // 📡 broadcast всем
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({
+                        type: "message",
+                        user: data.user,
+                        text: data.text
+                    }));
+                }
+            });
+
+        } catch (err) {
+            console.log("Message error:", err);
+        }
     });
+
 });
