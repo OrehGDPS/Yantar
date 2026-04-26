@@ -1,38 +1,44 @@
-// server.js
 const WebSocket = require("ws");
-const http = require("http");
+const fetch = require("node-fetch");
 
-// Лог запуска, чтобы сразу видеть в логах Railway
-console.log("Server.js загружен и стартует...");
+const wss = new WebSocket.Server({ port: process.env.PORT || 3000 });
 
-// Создаем HTTP сервер (Railway требует обертку для WebSocket)
-const server = http.createServer();
-const wss = new WebSocket.Server({ server });
+const FIRESTORE_URL =
+"https://firestore.googleapis.com/v1/projects/yantar-b1d5c/databases/(default)/documents/messages";
 
-let clients = [];
+// 💾 сохранить сообщение
+async function saveMessage(text, user) {
+    await fetch(FIRESTORE_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            fields: {
+                text: { stringValue: text },
+                user: { stringValue: user },
+                time: { integerValue: Date.now().toString() }
+            }
+        })
+    });
+}
 
+// 📡 WebSocket чат
 wss.on("connection", (ws) => {
-    console.log("Игрок подключился");
-    clients.push(ws);
 
-    ws.on("message", (message) => {
-        console.log("Сообщение:", message.toString());
-        // Отправляем всем клиентам (включая отправителя)
-        clients.forEach(client => {
+    ws.on("message", async (msg) => {
+        const data = JSON.parse(msg);
+
+        await saveMessage(data.text, data.user);
+
+        wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(message.toString());
+                client.send(JSON.stringify({
+                    type: "message",
+                    user: data.user,
+                    text: data.text
+                }));
             }
         });
     });
-
-    ws.on("close", () => {
-        clients = clients.filter(c => c !== ws);
-        console.log("Игрок отключился");
-    });
-});
-
-const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, () => {
-    console.log("Сервер запущен на порту " + PORT);
 });
