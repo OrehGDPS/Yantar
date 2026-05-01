@@ -3,6 +3,8 @@ const WebSocket = require("ws");
 
 const PORT = process.env.PORT || 3000;
 
+console.log("🔥 SERVER BOOTING...");
+
 const server = http.createServer((req, res) => {
     res.end("online");
 });
@@ -10,7 +12,11 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocket.Server({ server });
 
 wss.on("connection", (ws) => {
+    console.log("🟢 Client connected");
+
     ws.on("message", (msg) => {
+        console.log("📩 Message:", msg.toString());
+
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(msg.toString());
@@ -19,4 +25,6 @@ wss.on("connection", (ws) => {
     });
 });
 
-server.listen(PORT, "0.0.0.0");
+server.listen(PORT, "0.0.0.0", () => {
+    console.log("🚀 Server running on port:", PORT);
+});
