@@ -1,13 +1,20 @@
+const http = require("http");
 const WebSocket = require("ws");
 
-const server = new WebSocket.Server({ port: process.env.PORT || 12345 });
+const PORT = process.env.PORT || 3000;
+
+const server = http.createServer((req, res) => {
+    res.writeHead(200);
+    res.end("Server online");
+});
+
+const wss = new WebSocket.Server({ server });
 
 let clients = [];
 
-server.on("connection", (ws) => {
+wss.on("connection", (ws) => {
     clients.push(ws);
-
-    console.log("Подключился игрок");
+    console.log("Игрок подключился");
 
     ws.on("message", (message) => {
         clients.forEach(client => {
@@ -19,5 +26,10 @@ server.on("connection", (ws) => {
 
     ws.on("close", () => {
         clients = clients.filter(c => c !== ws);
+        console.log("Игрок вышел");
     });
+});
+
+server.listen(PORT, () => {
+    console.log("Сервер запущен на порту " + PORT);
 });
